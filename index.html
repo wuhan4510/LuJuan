@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>拖动拼图 · 自动轮播 image01.jpg</title>
+    <title>拖动拼图 · 网络图片轮播</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         body {
@@ -143,7 +143,7 @@
 <div class="app-container">
     <div class="title">
         🧩 灵动拼图
-        <span>image01.jpg 系列</span>
+        <span>GitHub Pages</span>
     </div>
 
     <div class="canvas-wrapper">
@@ -152,12 +152,12 @@
 
     <div class="toolbar">
         <button class="btn" id="uploadBtn" title="选择单张图片">📁 单张</button>
-        <button class="btn" id="reloadBtn" title="重新扫描 image01~image99">🔄 扫描目录</button>
+        <button class="btn" id="reloadBtn" title="重新加载 image01 系列">🔄 重新扫描</button>
         <button class="btn btn-primary" id="shuffleBtn" title="打乱当前拼图">🔀 打乱</button>
     </div>
     <input type="file" id="fileInput" class="file-input" accept="image/*">
 
-    <div class="status" id="statusMsg">正在扫描 image01.jpg 系列...</div>
+    <div class="status" id="statusMsg">正在加载 image01.jpg...</div>
     <div class="hint"><i>拖动任意两块交换位置 · 完成自动弹窗</i></div>
     <div class="folder-hint" id="folderHint"></div>
 </div>
@@ -174,6 +174,17 @@
 
 <script>
     (function(){
+        // ============================================================
+        //  核心配置：修改这里的 BASE_URL 和图片命名规则即可
+        // ============================================================
+        const BASE_URL = 'https://wuhan4510.github.io/LuJuan/';
+        const FILE_PREFIX = 'image';        // 文件名前缀
+        const FILE_EXT = '.jpg';            // 文件扩展名
+        const START_NUM = 1;                // 起始序号
+        const END_NUM = 99;                 // 最大探测序号
+        const NUM_PAD = 2;                  // 序号补零位数（2 => image01.jpg）
+        // ============================================================
+
         const canvas = document.getElementById('puzzleCanvas');
         const ctx = canvas.getContext('2d');
         const statusMsg = document.getElementById('statusMsg');
@@ -196,11 +207,9 @@
         let imageLoaded = false;
         let customImage = null;
 
-        // 图片列表: [{name, url}]
         let imageList = [];
         let currentImageIndex = -1;
 
-        // 拖拽状态
         let isDragging = false;
         let dragSourceIndex = -1;
         let dragCurrentX = 0, dragCurrentY = 0;
@@ -219,7 +228,16 @@
             '#1e3a5f', '#2a4b7a', '#4a6f9e', '#6e94c4'
         ];
 
-        // ---------- 工具函数 ----------
+        // ---------- 生成文件名 ----------
+        function buildFileName(num) {
+            return FILE_PREFIX + String(num).padStart(NUM_PAD, '0') + FILE_EXT;
+        }
+
+        function buildFileUrl(num) {
+            return BASE_URL + buildFileName(num);
+        }
+
+        // ---------- 打乱 ----------
         function generateShuffledTiles() {
             const arr = Array.from({ length: TILE_COUNT }, (_, i) => i);
             for (let i = arr.length - 1; i > 0; i--) {
@@ -245,9 +263,11 @@
             return true;
         }
 
+        // ---------- 加载图片（网络图片，必须 crossOrigin）----------
         function loadImageFromUrl(url, indexInfo) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
+                // GitHub Pages 支持 CORS，必须设置才能用于 canvas
                 img.crossOrigin = 'Anonymous';
                 img.onload = () => {
                     customImage = img;
@@ -255,63 +275,51 @@
                     tiles = generateShuffledTiles();
                     winModalShown = false;
                     drawPuzzle();
-                    statusMsg.textContent = `已加载图片${indexInfo ? ' ' + indexInfo : ''}，自动打乱`;
+                    statusMsg.textContent = `已加载 ${indexInfo || ''}，自动打乱`;
                     statusMsg.classList.remove('win-effect');
                     resolve(img);
                 };
-                img.onerror = () => reject(new Error('图片加载失败: ' + url));
+                img.onerror = (e) => {
+                    console.error('加载失败:', url, e);
+                    reject(new Error('图片加载失败: ' + url));
+                };
                 img.src = url;
             });
         }
 
+        // ---------- 默认拼图 ----------
         function initDefaultTiles() {
             tiles = Array.from({ length: TILE_COUNT }, (_, i) => i);
             imageLoaded = false;
             customImage = null;
             winModalShown = false;
             drawPuzzle();
-            statusMsg.textContent = '正在扫描 image01.jpg 系列...';
+            statusMsg.textContent = '加载中...';
             statusMsg.classList.remove('win-effect');
         }
 
-        // ---------- 扫描 image01.jpg ~ image99.jpg ----------
-        // 命名规则：image + 两位序号 + .jpg  例如 image01.jpg, image02.jpg
-        // 也兼容 image1.jpg ~ image9.jpg (一位数) 和 image001.jpg (三位数)
-        async function scanDirectoryForJPGs() {
-            folderHint.textContent = '正在扫描 image01.jpg 系列...';
-            statusMsg.textContent = '正在扫描 image01.jpg 系列...';
+        // ---------- 扫描网络图片 ----------
+        async function scanRemoteImages() {
+            folderHint.textContent = `正在探测 ${BASE_URL} ...`;
+            statusMsg.textContent = `正在探测 image01 ~ image${END_NUM}...`;
 
             const candidates = [];
-            
-            // 生成候选文件名：image01.jpg ~ image99.jpg
-            for (let i = 1; i <= 99; i++) {
-                const twoDigit = String(i).padStart(2, '0');      // 01, 02 ... 99
-                candidates.push(`image${twoDigit}.jpg`);
-                candidates.push(`image${twoDigit}.jpeg`);
-                // 同时兼容一位数和三位数
-                if (i < 10) {
-                    candidates.push(`image${i}.jpg`);
-                    candidates.push(`image${i}.jpeg`);
-                }
-                const threeDigit = String(i).padStart(3, '0');    // 001, 002 ...
-                candidates.push(`image${threeDigit}.jpg`);
-                candidates.push(`image${threeDigit}.jpeg`);
+            for (let i = START_NUM; i <= END_NUM; i++) {
+                candidates.push({ num: i, url: buildFileUrl(i), name: buildFileName(i) });
             }
 
-            // 去重
-            const uniqueCandidates = [...new Set(candidates)];
             const foundImages = [];
 
             // 并发探测
-            const concurrency = 12;
+            const concurrency = 8;
             let idx = 0;
             async function worker() {
-                while (idx < uniqueCandidates.length) {
-                    const fileName = uniqueCandidates[idx++];
-                    const exists = await testImageExists(fileName);
+                while (idx < candidates.length) {
+                    const item = candidates[idx++];
+                    const exists = await testImageExists(item.url);
                     if (exists) {
-                        foundImages.push({ name: fileName, url: fileName });
-                        folderHint.textContent = `已发现 ${foundImages.length} 张JPG...`;
+                        foundImages.push(item);
+                        folderHint.textContent = `已发现 ${foundImages.length} 张图片...`;
                     }
                 }
             }
@@ -319,14 +327,18 @@
             for (let w = 0; w < concurrency; w++) workers.push(worker());
             await Promise.all(workers);
 
-            // 按文件名排序（自然顺序，确保 image01 在 image02 前）
-            foundImages.sort((a, b) =>
-                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-            );
+            // 按序号排序
+            foundImages.sort((a, b) => a.num - b.num);
 
             if (foundImages.length === 0) {
-                folderHint.textContent = '未找到 image01.jpg 系列，请检查文件是否与 HTML 同目录';
-                statusMsg.textContent = '未找到图片，请将 image01.jpg 等放入同目录';
+                folderHint.textContent = `未在 ${BASE_URL} 找到 ${FILE_PREFIX}XX${FILE_EXT}`;
+                statusMsg.textContent = '未找到图片，请检查 BASE_URL 和文件名规则';
+                // 显示诊断信息
+                const testImg = new Image();
+                testImg.crossOrigin = 'Anonymous';
+                testImg.onload = () => console.log('理论上 image01.jpg 可以加载');
+                testImg.onerror = () => console.error('image01.jpg 加载失败，可能是路径或CORS问题');
+                testImg.src = buildFileUrl(START_NUM);
                 if (!imageLoaded) initDefaultTiles();
                 return;
             }
@@ -334,35 +346,57 @@
             imageList = foundImages;
             currentImageIndex = 0;
             const total = imageList.length;
-            folderHint.textContent = `📁 发现 ${total} 张 imageXX.jpg · 当前第1张`;
+            folderHint.textContent = `📁 发现 ${total} 张图片 · 当前第1张（${imageList[0].name}）`;
 
             try {
                 await loadImageFromUrl(imageList[0].url, `(1/${total})`);
                 statusMsg.textContent = `已加载 1/${total}：${imageList[0].name}`;
             } catch (e) {
-                statusMsg.textContent = '图片加载失败，请重试';
+                statusMsg.textContent = '图片加载失败，请检查网络或CORS';
                 console.error(e);
+                // 降级：试试不带 crossOrigin 的加载方式，让用户至少能看到图
+                fallbackLoadWithoutCors(imageList[0].url);
             }
+        }
+
+        // 无 CORS 降级方案（图片能显示但可能无法用 canvas 绘制，仍尝试）
+        function fallbackLoadWithoutCors(url) {
+            const img = new Image();
+            // 不设置 crossOrigin
+            img.onload = () => {
+                customImage = img;
+                imageLoaded = true;
+                tiles = generateShuffledTiles();
+                winModalShown = false;
+                drawPuzzle();
+                statusMsg.textContent = '已加载（无CORS模式）';
+                folderHint.textContent = '提示：无CORS模式可能导致部分功能受限';
+            };
+            img.onerror = () => {
+                statusMsg.textContent = '图片确实无法加载，请检查URL';
+            };
+            img.src = url;
         }
 
         function testImageExists(url) {
             return new Promise((resolve) => {
                 const img = new Image();
+                img.crossOrigin = 'Anonymous';
                 const timer = setTimeout(() => {
                     img.onload = null;
                     img.onerror = null;
                     resolve(false);
-                }, 2000);
+                }, 4000); // 网络图片给 4 秒
                 img.onload = () => { clearTimeout(timer); resolve(true); };
                 img.onerror = () => { clearTimeout(timer); resolve(false); };
                 img.src = url;
             });
         }
 
-        // ---------- 切换下一张 ----------
+        // ---------- 下一张 ----------
         function loadNextImage() {
             if (imageList.length === 0) {
-                statusMsg.textContent = '没有更多图片，请点击「扫描目录」';
+                statusMsg.textContent = '没有更多图片';
                 return;
             }
             currentImageIndex = (currentImageIndex + 1) % imageList.length;
@@ -372,7 +406,7 @@
             loadImageFromUrl(nextImg.url, `(${currentImageIndex + 1}/${total})`)
                 .then(() => {
                     statusMsg.textContent = `已加载 ${currentImageIndex + 1}/${total}：${nextImg.name}`;
-                    folderHint.textContent = `📁 ${total} 张 imageXX.jpg · 当前第${currentImageIndex + 1}张`;
+                    folderHint.textContent = `📁 ${total} 张图片 · 当前第${currentImageIndex + 1}张（${nextImg.name}）`;
                     hideWinModal();
                 })
                 .catch(() => {
@@ -402,7 +436,7 @@
                         modalDesc.textContent = `你成功拼好了这幅拼图！还有 ${imageList.length - 1} 张图片等你挑战。`;
                         nextImageBtn.style.display = 'block';
                     } else if (imageList.length === 1) {
-                        modalDesc.textContent = `你成功拼好了这幅拼图！这是目录中唯一的图片。`;
+                        modalDesc.textContent = `你成功拼好了这幅拼图！这是当前唯一的图片。`;
                         nextImageBtn.style.display = 'none';
                     } else {
                         modalDesc.textContent = `你成功拼好了这幅拼图，太棒了！`;
@@ -460,7 +494,14 @@
                     const srcY = srcRow * (customImage.height / ROWS);
                     const srcW = customImage.width / COLS;
                     const srcH = customImage.height / ROWS;
-                    ctx.drawImage(customImage, srcX, srcY, srcW, srcH, x, y, TILE_W, TILE_H);
+                    try {
+                        ctx.drawImage(customImage, srcX, srcY, srcW, srcH, x, y, TILE_W, TILE_H);
+                    } catch (e) {
+                        // CORS污染时降级到色块
+                        const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
+                        ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
+                        ctx.fillRect(x, y, TILE_W, TILE_H);
+                    }
                 } else {
                     const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
                     ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
@@ -496,7 +537,13 @@
                     const srcY = srcRow * (customImage.height / ROWS);
                     const srcW = customImage.width / COLS;
                     const srcH = customImage.height / ROWS;
-                    ctx.drawImage(customImage, srcX, srcY, srcW, srcH, drawX, drawY, TILE_W, TILE_H);
+                    try {
+                        ctx.drawImage(customImage, srcX, srcY, srcW, srcH, drawX, drawY, TILE_W, TILE_H);
+                    } catch (e) {
+                        const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
+                        ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
+                        ctx.fillRect(drawX, drawY, TILE_W, TILE_H);
+                    }
                 } else {
                     const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
                     ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
@@ -627,22 +674,28 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                        imageList = [{ name: file.name, url: ev.target.result }];
+                        imageList = [{ name: file.name, url: ev.target.result, num: 0 }];
                         currentImageIndex = 0;
-                        loadImageFromUrl(ev.target.result, '（单张）')
-                            .then(() => {
-                                folderHint.textContent = `📄 单张模式：${file.name}`;
-                            })
-                            .catch(() => {
-                                statusMsg.textContent = '图片加载失败';
-                            });
+                        // 本地上传不设 crossOrigin 避免污染
+                        const img = new Image();
+                        img.onload = () => {
+                            customImage = img;
+                            imageLoaded = true;
+                            tiles = generateShuffledTiles();
+                            winModalShown = false;
+                            drawPuzzle();
+                            statusMsg.textContent = `已加载单张：${file.name}`;
+                            folderHint.textContent = `📄 单张模式：${file.name}`;
+                        };
+                        img.onerror = () => statusMsg.textContent = '图片加载失败';
+                        img.src = ev.target.result;
                     };
                     reader.readAsDataURL(file);
                 }
                 fileInput.value = '';
             });
 
-            reloadBtn.addEventListener('click', () => scanDirectoryForJPGs());
+            reloadBtn.addEventListener('click', () => scanRemoteImages());
 
             shuffleBtn.addEventListener('click', () => {
                 if (!tiles.length) initDefaultTiles();
@@ -662,7 +715,8 @@
         function init() {
             initDefaultTiles();
             bindEvents();
-            setTimeout(() => scanDirectoryForJPGs(), 300);
+            // 直接开始扫描
+            setTimeout(() => scanRemoteImages(), 200);
         }
 
         init();
