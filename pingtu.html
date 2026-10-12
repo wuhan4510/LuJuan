@@ -1,0 +1,821 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>拖动拼图 · 自定义图片 · 自动轮播</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #1a2639 0%, #2a3b4f 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 12px;
+        }
+        .app-container {
+            background: rgba(22, 30, 40, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 42px;
+            padding: 22px 20px 30px;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.6), inset 0 1px 4px rgba(255,255,255,0.15);
+            max-width: 450px;
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .title {
+            text-align: center;
+            font-weight: 500;
+            font-size: 24px;
+            letter-spacing: 2px;
+            color: #eef4ff;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .title span {
+            background: #2e4b6e;
+            padding: 4px 10px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 400;
+            color: #cbd8f0;
+            letter-spacing: 0.5px;
+        }
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            margin: 8px 0 16px;
+            border-radius: 32px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1), 0 18px 25px -8px black;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            background: #10171f;
+            cursor: grab;
+            touch-action: none;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin: 18px 0 12px;
+        }
+        .btn {
+            background: #252f3a;
+            border: none;
+            border-radius: 60px;
+            padding: 12px 20px;
+            font-weight: 500;
+            font-size: 16px;
+            color: #e6edf7;
+            box-shadow: 0 8px 0 #0b1015, 0 10px 20px rgba(0,0,0,0.3);
+            transition: all 0.06s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            flex: 1 0 auto;
+            min-width: 100px;
+            border: 1px solid rgba(255,255,255,0.06);
+            letter-spacing: 0.3px;
+        }
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 3px 0 #0b1015, 0 8px 16px rgba(0,0,0,0.4);
+        }
+        .btn-primary {
+            background: #3b6ea5;
+            box-shadow: 0 8px 0 #1d3550, 0 10px 20px rgba(0,0,0,0.3);
+            color: white;
+        }
+        .btn-primary:active {
+            box-shadow: 0 3px 0 #1d3550, 0 8px 16px rgba(0,0,0,0.4);
+        }
+        .btn:disabled {
+            opacity: 0.45;
+            transform: translateY(4px);
+            box-shadow: 0 4px 0 #0b1015;
+            pointer-events: none;
+        }
+        .file-input {
+            display: none;
+        }
+        .status {
+            text-align: center;
+            font-size: 15px;
+            font-weight: 400;
+            color: #a1b7d4;
+            margin-top: 12px;
+            letter-spacing: 0.5px;
+            min-height: 24px;
+            transition: color 0.2s;
+            line-height: 1.4;
+        }
+        .win-effect {
+            color: #7ff0b2;
+            text-shadow: 0 0 10px #1e8a5c;
+            font-weight: 600;
+        }
+        .hint {
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+        .hint i {
+            font-style: normal;
+            background: #1e2a36;
+            padding: 2px 10px;
+            border-radius: 30px;
+        }
+        .folder-hint {
+            font-size: 11px;
+            color: #5b6e85;
+            text-align: center;
+            margin-top: 6px;
+            word-break: break-all;
+        }
+
+        /* 弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-box {
+            background: linear-gradient(145deg, #1e2e3e, #16212b);
+            border-radius: 40px;
+            padding: 32px 28px 28px;
+            max-width: 320px;
+            width: 85%;
+            text-align: center;
+            box-shadow: 0 35px 50px rgba(0, 0, 0, 0.7), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .modal-overlay.show .modal-box {
+            transform: scale(1);
+        }
+        .modal-emoji {
+            font-size: 64px;
+            line-height: 1;
+            margin-bottom: 12px;
+            display: block;
+            filter: drop-shadow(0 0 16px #7ff0b2);
+        }
+        .modal-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #eef4ff;
+            letter-spacing: 1px;
+            margin: 0 0 8px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+        }
+        .modal-desc {
+            font-size: 16px;
+            color: #9bb5d4;
+            margin: 0 0 24px;
+            line-height: 1.5;
+        }
+        .modal-btn {
+            background: #3b6ea5;
+            border: none;
+            border-radius: 60px;
+            padding: 14px 24px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 8px 0 #1d3550, 0 10px 20px rgba(0,0,0,0.4);
+            transition: all 0.06s ease;
+            cursor: pointer;
+            width: 100%;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .modal-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 3px 0 #1d3550, 0 8px 16px rgba(0,0,0,0.4);
+        }
+        .modal-btn.secondary {
+            background: #2a3a4a;
+            box-shadow: 0 8px 0 #111a22, 0 10px 20px rgba(0,0,0,0.3);
+            margin-top: 10px;
+            font-size: 16px;
+            padding: 12px 20px;
+        }
+        .modal-btn.secondary:active {
+            box-shadow: 0 3px 0 #111a22, 0 8px 16px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="title">
+        🧩 灵动拼图
+        <span>自动轮播</span>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="puzzleCanvas" width="500" height="500"></canvas>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn" id="uploadBtn" title="选择单张图片">📁 单张</button>
+        <button class="btn" id="folderBtn" title="加载文件夹所有JPG">📂 文件夹</button>
+        <button class="btn btn-primary" id="shuffleBtn" title="打乱当前拼图">🔄 打乱</button>
+    </div>
+    <input type="file" id="fileInput" class="file-input" accept="image/*">
+    <input type="file" id="folderInput" class="file-input" accept="image/jpeg,image/jpg" multiple webkitdirectory directory>
+
+    <div class="status" id="statusMsg">点击「单张」或「文件夹」开始</div>
+    <div class="hint"><i>拖动任意两块交换位置 · 完成自动弹窗</i></div>
+    <div class="folder-hint" id="folderHint"></div>
+</div>
+
+<!-- 完成弹窗 -->
+<div class="modal-overlay" id="winModal">
+    <div class="modal-box">
+        <span class="modal-emoji">🎉</span>
+        <h2 class="modal-title">恭喜完成！</h2>
+        <p class="modal-desc" id="modalDesc">你成功拼好了这幅拼图！</p>
+        <button class="modal-btn" id="nextImageBtn">下一张图片</button>
+        <button class="modal-btn secondary" id="modalCloseBtn">继续挑战</button>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- 拼图核心参数 ----------
+        const canvas = document.getElementById('puzzleCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusMsg = document.getElementById('statusMsg');
+        const folderHint = document.getElementById('folderHint');
+        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const folderBtn = document.getElementById('folderBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+
+        const winModal = document.getElementById('winModal');
+        const modalDesc = document.getElementById('modalDesc');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+        const nextImageBtn = document.getElementById('nextImageBtn');
+
+        const COLS = 3;
+        const ROWS = 3;
+        const TILE_COUNT = COLS * ROWS;
+
+        // 拼图状态
+        let tiles = [];
+        let imageLoaded = false;
+        let customImage = null;
+
+        // 图片列表相关
+        let imageList = [];          // 存储图片URL或File对象
+        let currentImageIndex = -1;  // 当前在列表中的索引
+
+        // 拖拽状态
+        let isDragging = false;
+        let dragSourceIndex = -1;
+        let dragCurrentX = 0, dragCurrentY = 0;
+        let dragStartX = 0, dragStartY = 0;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let dragMoved = false;
+
+        // 弹窗标记
+        let winModalShown = false;
+
+        // 画布常量
+        const CANVAS_SIZE = 500;
+        const TILE_W = CANVAS_SIZE / COLS;
+        const TILE_H = CANVAS_SIZE / ROWS;
+
+        const DEFAULT_TILE_COLORS = [
+            '#2e4b6e', '#3b6ea5', '#5a8ec9', '#7eaaed', '#a8c4f0',
+            '#1e3a5f', '#2a4b7a', '#4a6f9e', '#6e94c4'
+        ];
+
+        // ---------- 工具函数 ----------
+        // 生成打乱数组，保证有解且不完成
+        function generateShuffledTiles() {
+            const arr = Array.from({ length: TILE_COUNT }, (_, i) => i);
+            // Fisher-Yates
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            // 避免直接完成
+            let attempts = 0;
+            while (isSolvedArray(arr) && attempts < 30) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                attempts++;
+            }
+            if (isSolvedArray(arr)) {
+                [arr[0], arr[1]] = [arr[1], arr[0]];
+            }
+            return arr;
+        }
+
+        function isSolvedArray(arr) {
+            for (let i = 0; i < arr.length; i++) {
+                if (arr[i] !== i) return false;
+            }
+            return true;
+        }
+
+        // 从图片文件/URL加载图像，并自动打乱
+        function loadImageFromSource(src, indexInfo) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous'; // 允许跨域（对于本地文件无影响）
+                img.onload = () => {
+                    customImage = img;
+                    imageLoaded = true;
+                    // 自动打乱
+                    tiles = generateShuffledTiles();
+                    winModalShown = false;
+                    drawPuzzle();
+                    statusMsg.textContent = `已加载图片${indexInfo ? ' ' + indexInfo : ''}，自动打乱`;
+                    statusMsg.classList.remove('win-effect');
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    reject(new Error('图片加载失败: ' + src));
+                };
+                img.src = src;
+            });
+        }
+
+        // ---------- 初始化默认拼图 ----------
+        function initDefaultTiles() {
+            tiles = Array.from({ length: TILE_COUNT }, (_, i) => i);
+            imageLoaded = false;
+            customImage = null;
+            winModalShown = false;
+            drawPuzzle();
+            statusMsg.textContent = '点击「单张」或「文件夹」开始';
+            statusMsg.classList.remove('win-effect');
+        }
+
+        // ---------- 处理单张图片上传 (自动打乱) ----------
+        function handleSingleImageFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                statusMsg.textContent = '请选择有效的图片文件';
+                return;
+            }
+            // 清空文件夹列表
+            imageList = [];
+            currentImageIndex = -1;
+            folderHint.textContent = '';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                loadImageFromSource(e.target.result, '（单张）')
+                    .catch(err => {
+                        statusMsg.textContent = '图片加载失败';
+                    });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ---------- 处理文件夹JPG (自动打乱，并建立列表) ----------
+        function handleFolderFiles(files) {
+            // 过滤出jpg/jpeg文件
+            const jpgFiles = Array.from(files).filter(file => 
+                file.type === 'image/jpeg' || 
+                file.name.toLowerCase().endsWith('.jpg') || 
+                file.name.toLowerCase().endsWith('.jpeg')
+            );
+
+            if (jpgFiles.length === 0) {
+                statusMsg.textContent = '该文件夹中没有找到JPG/JPEG图片';
+                folderHint.textContent = '';
+                return;
+            }
+
+            // 按文件名排序，方便顺序浏览
+            jpgFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+            // 读取所有文件为 dataURL (异步)
+            const readPromises = jpgFiles.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve({ name: file.name, dataUrl: e.target.result });
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(readPromises).then(results => {
+                const validImages = results.filter(r => r !== null);
+                if (validImages.length === 0) {
+                    statusMsg.textContent = '图片读取失败';
+                    return;
+                }
+
+                // 保存到列表
+                imageList = validImages;
+                currentImageIndex = 0;
+                // 显示文件夹信息
+                folderHint.textContent = `📁 ${validImages.length} 张JPG · 当前第1张`;
+
+                // 加载第一张，自动打乱
+                loadImageFromSource(validImages[0].dataUrl, `(1/${validImages.length})`)
+                    .then(() => {
+                        // 已自动打乱，更新状态
+                        statusMsg.textContent = `已加载 1/${validImages.length}：${validImages[0].name}`;
+                    })
+                    .catch(() => {
+                        statusMsg.textContent = '图片加载失败';
+                    });
+            });
+        }
+
+        // ---------- 切换到下一张图片 ----------
+        function loadNextImage() {
+            if (imageList.length === 0) {
+                // 没有列表，尝试用单张模式重新加载? 或者提示
+                statusMsg.textContent = '没有更多图片，请重新选择文件夹';
+                return;
+            }
+
+            // 循环到下一张
+            currentImageIndex = (currentImageIndex + 1) % imageList.length;
+            const nextImg = imageList[currentImageIndex];
+            const total = imageList.length;
+
+            loadImageFromSource(nextImg.dataUrl, `(${currentImageIndex+1}/${total})`)
+                .then(() => {
+                    statusMsg.textContent = `已加载 ${currentImageIndex+1}/${total}：${nextImg.name}`;
+                    folderHint.textContent = `📁 ${total} 张JPG · 当前第${currentImageIndex+1}张`;
+                    // 关闭弹窗
+                    hideWinModal();
+                })
+                .catch(() => {
+                    statusMsg.textContent = '图片加载失败';
+                });
+        }
+
+        // ---------- 打乱当前拼图 ----------
+        function shuffleCurrentTiles() {
+            if (!tiles.length) return;
+            tiles = generateShuffledTiles();
+            winModalShown = false;
+            drawPuzzle();
+            statusMsg.textContent = '拼图已打乱，拖动交换位置';
+            statusMsg.classList.remove('win-effect');
+            hideWinModal();
+        }
+
+        // ---------- 检查完成并弹窗 ----------
+        function checkSolved() {
+            const solved = isSolvedArray(tiles);
+            if (solved) {
+                statusMsg.textContent = '🎉 恭喜！拼图完成！';
+                statusMsg.classList.add('win-effect');
+                drawPuzzle();
+
+                if (!winModalShown) {
+                    winModalShown = true;
+                    // 更新弹窗描述，显示是否有下一张
+                    if (imageList.length > 1) {
+                        modalDesc.textContent = `你成功拼好了这幅拼图！还有 ${imageList.length - 1} 张图片等你挑战。`;
+                        nextImageBtn.style.display = 'block';
+                    } else if (imageList.length === 1) {
+                        modalDesc.textContent = `你成功拼好了这幅拼图！这是文件夹中唯一的图片。`;
+                        nextImageBtn.style.display = 'none';
+                    } else {
+                        modalDesc.textContent = `你成功拼好了这幅拼图，太棒了！`;
+                        nextImageBtn.style.display = 'none';
+                    }
+                    showWinModal();
+                }
+            }
+            return solved;
+        }
+
+        function showWinModal() {
+            winModal.classList.add('show');
+        }
+
+        function hideWinModal() {
+            winModal.classList.remove('show');
+        }
+
+        // ---------- 获取坐标 ----------
+        function getTileIndexFromPoint(canvasX, canvasY) {
+            if (canvasX < 0 || canvasX >= CANVAS_SIZE || canvasY < 0 || canvasY >= CANVAS_SIZE) return -1;
+            const col = Math.floor(canvasX / TILE_W);
+            const row = Math.floor(canvasY / TILE_H);
+            return row * COLS + col;
+        }
+
+        // ---------- 绘制拼图 ----------
+        function drawPuzzle() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // 背景网格
+            for (let i = 0; i <= COLS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * TILE_W, 0);
+                ctx.lineTo(i * TILE_W, CANVAS_SIZE);
+                ctx.strokeStyle = '#263b4e';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * TILE_H);
+                ctx.lineTo(CANVAS_SIZE, i * TILE_H);
+                ctx.strokeStyle = '#263b4e';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            for (let pos = 0; pos < TILE_COUNT; pos++) {
+                if (isDragging && dragMoved && pos === dragSourceIndex) continue;
+
+                const tileValue = tiles[pos];
+                const row = Math.floor(pos / COLS);
+                const col = pos % COLS;
+                const x = col * TILE_W;
+                const y = row * TILE_H;
+
+                if (imageLoaded && customImage) {
+                    const srcRow = Math.floor(tileValue / COLS);
+                    const srcCol = tileValue % COLS;
+                    const srcX = srcCol * (customImage.width / COLS);
+                    const srcY = srcRow * (customImage.height / ROWS);
+                    const srcW = customImage.width / COLS;
+                    const srcH = customImage.height / ROWS;
+                    ctx.drawImage(customImage, srcX, srcY, srcW, srcH, x, y, TILE_W, TILE_H);
+                } else {
+                    const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
+                    ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
+                    ctx.fillRect(x, y, TILE_W, TILE_H);
+                    ctx.font = `bold ${TILE_W * 0.4}px 'Segoe UI', Roboto, sans-serif`;
+                    ctx.fillStyle = '#ffffffdd';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = '#00000080';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(tileValue + 1, x + TILE_W/2, y + TILE_H/2);
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.strokeStyle = '#ffffff30';
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(x + 1, y + 1, TILE_W - 2, TILE_H - 2);
+            }
+
+            // 拖拽浮层
+            if (isDragging && dragMoved && dragSourceIndex !== -1) {
+                const tileValue = tiles[dragSourceIndex];
+                const drawX = dragCurrentX - dragOffsetX;
+                const drawY = dragCurrentY - dragOffsetY;
+
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 20;
+
+                if (imageLoaded && customImage) {
+                    const srcRow = Math.floor(tileValue / COLS);
+                    const srcCol = tileValue % COLS;
+                    const srcX = srcCol * (customImage.width / COLS);
+                    const srcY = srcRow * (customImage.height / ROWS);
+                    const srcW = customImage.width / COLS;
+                    const srcH = customImage.height / ROWS;
+                    ctx.drawImage(customImage, srcX, srcY, srcW, srcH, drawX, drawY, TILE_W, TILE_H);
+                } else {
+                    const colorIndex = tileValue % DEFAULT_TILE_COLORS.length;
+                    ctx.fillStyle = DEFAULT_TILE_COLORS[colorIndex];
+                    ctx.fillRect(drawX, drawY, TILE_W, TILE_H);
+                    ctx.font = `bold ${TILE_W * 0.4}px 'Segoe UI', Roboto, sans-serif`;
+                    ctx.fillStyle = '#ffffffdd';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(tileValue + 1, drawX + TILE_W/2, drawY + TILE_H/2);
+                }
+
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#f5e56b';
+                ctx.lineWidth = 5;
+                ctx.strokeRect(drawX + 3, drawY + 3, TILE_W - 6, TILE_H - 6);
+                ctx.restore();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#5f7f9f';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, CANVAS_SIZE - 4, CANVAS_SIZE - 4);
+        }
+
+        // ---------- 指针事件 ----------
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clientX, clientY;
+
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+                e.preventDefault();
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY,
+            };
+        }
+
+        function onPointerDown(e) {
+            e.preventDefault();
+            if (isDragging) return;
+            if (winModal.classList.contains('show')) return;
+
+            const coords = getCanvasCoords(e);
+            const tileIndex = getTileIndexFromPoint(coords.x, coords.y);
+            if (tileIndex === -1) return;
+
+            isDragging = true;
+            dragSourceIndex = tileIndex;
+            dragMoved = false;
+
+            const row = Math.floor(tileIndex / COLS);
+            const col = tileIndex % COLS;
+            const tileX = col * TILE_W;
+            const tileY = row * TILE_H;
+
+            dragStartX = coords.x;
+            dragStartY = coords.y;
+            dragCurrentX = coords.x;
+            dragCurrentY = coords.y;
+            dragOffsetX = coords.x - tileX;
+            dragOffsetY = coords.y - tileY;
+
+            drawPuzzle();
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            const coords = getCanvasCoords(e);
+            dragCurrentX = coords.x;
+            dragCurrentY = coords.y;
+
+            const dx = coords.x - dragStartX;
+            const dy = coords.y - dragStartY;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+
+            if (!dragMoved && distance > 8) {
+                dragMoved = true;
+            }
+
+            if (dragMoved) {
+                drawPuzzle();
+            }
+        }
+
+        function onPointerUp(e) {
+            e.preventDefault();
+            if (!isDragging) return;
+
+            const coords = getCanvasCoords(e);
+            const dropIndex = getTileIndexFromPoint(coords.x, coords.y);
+
+            if (dragMoved && dropIndex !== -1 && dragSourceIndex !== -1 && dropIndex !== dragSourceIndex) {
+                [tiles[dragSourceIndex], tiles[dropIndex]] = [tiles[dropIndex], tiles[dragSourceIndex]];
+                statusMsg.textContent = `交换位置成功`;
+                statusMsg.classList.remove('win-effect');
+            }
+
+            isDragging = false;
+            dragSourceIndex = -1;
+            dragMoved = false;
+            drawPuzzle();
+
+            checkSolved();
+        }
+
+        function onPointerCancel(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            isDragging = false;
+            dragSourceIndex = -1;
+            dragMoved = false;
+            drawPuzzle();
+        }
+
+        // ---------- 事件绑定 ----------
+        function bindEvents() {
+            // 拖拽
+            canvas.addEventListener('mousedown', onPointerDown);
+            window.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+            canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+            canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+            canvas.addEventListener('touchend', onPointerUp);
+            canvas.addEventListener('touchcancel', onPointerCancel);
+
+            // 单张上传
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) handleSingleImageFile(file);
+                fileInput.value = '';
+            });
+
+            // 文件夹上传
+            folderBtn.addEventListener('click', () => folderInput.click());
+            folderInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    handleFolderFiles(files);
+                }
+                folderInput.value = '';
+            });
+
+            // 打乱
+            shuffleBtn.addEventListener('click', () => {
+                if (!tiles.length) {
+                    initDefaultTiles();
+                } else {
+                    shuffleCurrentTiles();
+                }
+            });
+
+            // 弹窗按钮
+            modalCloseBtn.addEventListener('click', hideWinModal);
+            nextImageBtn.addEventListener('click', () => {
+                hideWinModal();
+                loadNextImage();
+            });
+
+            // 点击遮罩关闭
+            winModal.addEventListener('click', (e) => {
+                if (e.target === winModal) hideWinModal();
+            });
+        }
+
+        // 启动
+        function init() {
+            initDefaultTiles();
+            bindEvents();
+            // 提示文件夹支持
+            folderHint.textContent = '支持选择包含JPG的文件夹，自动轮播';
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
