@@ -1,0 +1,764 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔢 猜数字 · 四位数</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(4px);
+            padding: 1.5rem 1.8rem 2rem;
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.06);
+            width: 100%;
+            max-width: 600px;
+            transition: 0.3s;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 1px;
+            font-size: 1.3rem;
+            margin: 0 0 1.2rem 0;
+            color: #f0e9db;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+            h1 span {
+                background: #2d3b52;
+                padding: 0.05rem 0.7rem;
+                border-radius: 40px;
+                font-size: 1.0rem;
+                color: #b9c8e0;
+            }
+
+        /* ----- 状态栏 ----- */
+        .status-bar {
+            background: #0f172a88;
+            border-radius: 1rem;
+            padding: 0.6rem 1.2rem;
+            margin-bottom: 0.8rem;
+            border: 1px solid #2d405a;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            color: #eef3fc;
+            font-size: 0.95rem;
+            text-shadow: 0 2px 3px #00000077;
+            transition: 0.2s;
+        }
+
+            .status-bar .status-icon {
+                margin-right: 10px;
+                font-size: 1.2rem;
+                flex-shrink: 0;
+            }
+
+            .status-bar .status-text {
+                flex: 1;
+            }
+
+                .status-bar .status-text strong {
+                    color: #ffd966;
+                }
+
+            .status-bar.status-success {
+                border-color: #5dbc7a;
+                background: #1a3a2a88;
+            }
+
+            .status-bar.status-error {
+                border-color: #c05a5a;
+                background: #3a1a1a88;
+            }
+
+            .status-bar.status-info {
+                border-color: #4a6a8a;
+            }
+
+        /* ----- 历史记录（全部显示，不滚动） ----- */
+        .history-section {
+            margin-bottom: 1.2rem;
+            background: #0f172a88;
+            border-radius: 1.5rem;
+            padding: 0.8rem 0.8rem 0.5rem;
+            border: 1px solid #2d405a;
+            display: flex;
+            flex-direction: column;
+            /* 移除固定高度，让内容自然撑开 */
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 0.3rem 0.5rem 0.3rem;
+            flex-wrap: wrap;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+            .history-header h3 {
+                color: #b0c7e5;
+                font-weight: 400;
+                letter-spacing: 0.5px;
+                font-size: 0.85rem;
+                margin: 0;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+                .history-header h3 span {
+                    background: #2d3b52;
+                    padding: 0.05rem 0.6rem;
+                    border-radius: 40px;
+                    font-size: 0.75rem;
+                    color: #d0dff5;
+                }
+
+            .history-header .hint-btn-small {
+                background: #3d4b63;
+                border: none;
+                border-radius: 40px;
+                padding: 0.2rem 1rem;
+                font-size: 0.75rem;
+                color: #e3ecfc;
+                cursor: pointer;
+                transition: 0.15s;
+                box-shadow: 0 3px 0 #232f42;
+                border: 1px solid #5f7393;
+            }
+
+                .history-header .hint-btn-small:active {
+                    transform: translateY(3px);
+                    box-shadow: 0 0px 0 #232f42;
+                }
+
+                .history-header .hint-btn-small:hover {
+                    background: #526885;
+                }
+
+        /* 历史列表 - 不滚动，全部显示 */
+        .history-list {
+            flex: 1;
+            padding-right: 0.2rem;
+            /* 移除 overflow-y: auto，全部显示 */
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0.7rem;
+            margin-bottom: 0.2rem;
+            border-radius: 40px;
+            background: #1a2538;
+            border-left: 3px solid #4a6a8a;
+            color: #d0dff5;
+            font-size: 0.85rem;
+            transition: 0.1s;
+            flex-shrink: 0;
+        }
+
+            .history-item .guess-number {
+                font-weight: 700;
+                letter-spacing: 3px;
+                font-size: 1.0rem;
+                color: #e7f0ff;
+                min-width: 60px;
+            }
+
+            .history-item .guess-result {
+                display: flex;
+                gap: 0.8rem;
+                font-size: 0.8rem;
+            }
+
+                .history-item .guess-result .digits {
+                    color: #7db0f0;
+                }
+
+                .history-item .guess-result .positions {
+                    color: #f5c542;
+                }
+
+            .history-item .guess-index {
+                color: #6a7f9a;
+                font-size: 0.7rem;
+                min-width: 24px;
+            }
+
+            .history-item.win-item {
+                background: #1d4a2a;
+                border-left-color: #5dbc7a;
+            }
+
+                .history-item.win-item .guess-number {
+                    color: #7ddf9a;
+                }
+
+        .history-empty {
+            color: #4a607a;
+            text-align: center;
+            padding: 1.5rem 0;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .guess-area {
+            background: #1e2a3a;
+            border-radius: 3rem;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.2rem;
+            box-shadow: inset 0 8px 12px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3);
+            border: 1px solid #3f506a;
+        }
+
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem 1rem;
+        }
+
+        #guessInput {
+            background: #0f172a;
+            border: 2px solid #3f5a7a;
+            border-radius: 60px;
+            padding: 0.6rem 1.2rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 6px;
+            color: #e7f0ff;
+            width: 150px;
+            text-align: center;
+            outline: none;
+            transition: 0.2s;
+            box-shadow: inset 0 2px 6px #00000055;
+        }
+
+            #guessInput:focus {
+                border-color: #90b8f8;
+                background: #1a2740;
+                box-shadow: 0 0 0 3px #3d6aac55, inset 0 2px 6px #000;
+            }
+
+            #guessInput::placeholder {
+                color: #5a6f8a;
+                letter-spacing: 2px;
+                font-weight: 300;
+                font-size: 1.0rem;
+            }
+
+            #guessInput.input-error {
+                border-color: #c05a5a;
+                box-shadow: 0 0 0 3px #c05a5a55;
+            }
+
+        .btn-primary {
+            background: #3b6bb0;
+            border: none;
+            border-radius: 60px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: white;
+            cursor: pointer;
+            transition: 0.15s;
+            box-shadow: 0 5px 0 #1f3a66, 0 6px 12px #00000055;
+            border: 1px solid #6791d0;
+        }
+
+            .btn-primary:active {
+                transform: translateY(5px);
+                box-shadow: 0 1px 0 #1f3a66;
+            }
+
+            .btn-primary:hover {
+                background: #4a7ec9;
+                border-color: #8bb0f0;
+            }
+
+        .btn-secondary {
+            background: #3d4b63;
+            border: none;
+            border-radius: 60px;
+            padding: 0.5rem 1.2rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: #e3ecfc;
+            cursor: pointer;
+            transition: 0.15s;
+            box-shadow: 0 4px 0 #232f42, 0 6px 12px #00000044;
+            border: 1px solid #5f7393;
+        }
+
+            .btn-secondary:active {
+                transform: translateY(4px);
+                box-shadow: 0 1px 0 #232f42;
+            }
+
+            .btn-secondary:hover {
+                background: #526885;
+                color: white;
+            }
+
+        .digit-pad {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.5rem;
+            margin: 0.8rem 0 0.5rem;
+        }
+
+        .digit-btn {
+            background: #28344a;
+            border: none;
+            border-radius: 50px;
+            padding: 0.6rem 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #dce5f5;
+            cursor: pointer;
+            transition: 0.1s ease;
+            box-shadow: 0 4px 0 #111a27, 0 6px 12px #00000055;
+            border-bottom: 1px solid #4b6180;
+            text-align: center;
+        }
+
+            .digit-btn:active {
+                transform: translateY(4px);
+                box-shadow: 0 1px 0 #111a27;
+            }
+
+            .digit-btn:hover {
+                background: #35466a;
+                color: white;
+            }
+
+            .digit-btn.clear-btn {
+                background: #5a3f4a;
+                color: #ffd8c0;
+                border-bottom-color: #8a5c6a;
+            }
+
+                .digit-btn.clear-btn:hover {
+                    background: #7a4f5e;
+                }
+
+            .digit-btn.backspace-btn {
+                background: #3f4a5a;
+                border-bottom-color: #5f6f88;
+            }
+
+                .digit-btn.backspace-btn:hover {
+                    background: #566882;
+                }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 0.8rem;
+            color: #6680a0;
+            font-size: 0.7rem;
+            letter-spacing: 0.3px;
+            opacity: 0.6;
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 1rem;
+            }
+
+            .digit-pad {
+                gap: 0.4rem;
+            }
+
+            .digit-btn {
+                font-size: 1.2rem;
+                padding: 0.5rem 0;
+            }
+
+            #guessInput {
+                width: 120px;
+                font-size: 1.3rem;
+                letter-spacing: 4px;
+            }
+
+            .history-item {
+                font-size: 0.75rem;
+                padding: 0.2rem 0.5rem;
+            }
+
+                .history-item .guess-number {
+                    font-size: 0.85rem;
+                    min-width: 50px;
+                }
+
+            .status-bar {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.8rem;
+                min-height: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+
+        <h1>
+            🎯 猜数字
+            <span>4位 · 不重复</span>
+        </h1>
+
+        <!-- 状态栏 -->
+        <div class="status-bar status-info" id="statusBar">
+            <span class="status-icon">💡</span>
+            <span class="status-text" id="statusText">输入4位不重复数字，点击「确认」</span>
+        </div>
+
+        <!-- 历史记录（全部显示，不滚动） -->
+        <div class="history-section">
+            <div class="history-header">
+                <h3>📋 猜测记录 <span id="attemptCounter">0</span></h3>
+                <button class="hint-btn-small" id="hintBtn">🔍 提示</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <div class="history-empty">还没有猜测记录，开始吧！</div>
+            </div>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="guess-area">
+            <div class="input-group">
+                <input type="text" id="guessInput" placeholder="— — — —" maxlength="4" inputmode="numeric" pattern="[0-9]*">
+                <button class="btn-primary" id="checkBtn">✔ 确认</button>
+                <button class="btn-secondary" id="newGameBtn">✨ 新局</button>
+            </div>
+        </div>
+
+        <!-- 数字键盘 2行 -->
+        <div class="digit-pad" id="digitPad">
+            <button class="digit-btn" data-digit="1">1</button>
+            <button class="digit-btn" data-digit="2">2</button>
+            <button class="digit-btn" data-digit="3">3</button>
+            <button class="digit-btn" data-digit="4">4</button>
+            <button class="digit-btn" data-digit="5">5</button>
+            <button class="digit-btn" data-digit="6">6</button>
+
+            <button class="digit-btn" data-digit="7">7</button>
+            <button class="digit-btn" data-digit="8">8</button>
+            <button class="digit-btn" data-digit="9">9</button>
+            <button class="digit-btn" data-digit="0">0</button>
+            <button class="digit-btn backspace-btn" id="backspaceBtn">⌫</button>
+            <button class="digit-btn clear-btn" id="clearBtn">✕</button>
+        </div>
+
+        <div class="footer-note">4位数字互不相同 · 位置与数值分别统计</div>
+    </div>
+
+    <script>
+        (function () {
+            // ---------- 游戏状态 ----------
+            let secretNumber = '';
+            let attempts = 0;
+            let gameOver = false;
+            const maxAttempts = 15;
+            let history = [];
+
+            // DOM 引用
+            const guessInput = document.getElementById('guessInput');
+            const attemptSpan = document.getElementById('attemptCounter');
+            const historyList = document.getElementById('historyList');
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            const checkBtn = document.getElementById('checkBtn');
+            const newGameBtn = document.getElementById('newGameBtn');
+            const hintBtn = document.getElementById('hintBtn');
+            const digitPad = document.getElementById('digitPad');
+
+            // ---------- 状态栏更新 ----------
+            function setStatus(message, type = 'info', icon = '💡') {
+                statusText.innerHTML = message;
+                statusBar.className = 'status-bar';
+                if (type === 'success') {
+                    statusBar.classList.add('status-success');
+                } else if (type === 'error') {
+                    statusBar.classList.add('status-error');
+                } else {
+                    statusBar.classList.add('status-info');
+                }
+                const iconSpan = statusBar.querySelector('.status-icon');
+                if (iconSpan) iconSpan.textContent = icon;
+            }
+
+            // ---------- 核心函数 ----------
+            function generateSecret() {
+                let digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+                for (let i = digits.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [digits[i], digits[j]] = [digits[j], digits[i]];
+                }
+                return digits.slice(0, 4).join('');
+            }
+
+            function hasDuplicate(num) {
+                return new Set(num.split('')).size !== num.length;
+            }
+
+            function evaluateGuess(guess, secret) {
+                if (guess.length !== 4 || secret.length !== 4) {
+                    return { correctDigits: 0, correctPositions: 0 };
+                }
+
+                let secretArr = secret.split('');
+                let guessArr = guess.split('');
+
+                let posMatch = 0;
+                let secretRemaining = [];
+                let guessRemaining = [];
+
+                for (let i = 0; i < 4; i++) {
+                    if (guessArr[i] === secretArr[i]) {
+                        posMatch++;
+                    } else {
+                        secretRemaining.push(secretArr[i]);
+                        guessRemaining.push(guessArr[i]);
+                    }
+                }
+
+                let digitMatch = 0;
+                let secretCount = {};
+                for (let ch of secretRemaining) {
+                    secretCount[ch] = (secretCount[ch] || 0) + 1;
+                }
+
+                for (let ch of guessRemaining) {
+                    if (secretCount[ch] && secretCount[ch] > 0) {
+                        digitMatch++;
+                        secretCount[ch]--;
+                    }
+                }
+
+                return {
+                    correctDigits: digitMatch,
+                    correctPositions: posMatch
+                };
+            }
+
+            function renderHistory() {
+                if (history.length === 0) {
+                    historyList.innerHTML = '<div class="history-empty">还没有猜测记录，开始吧！</div>';
+                    return;
+                }
+
+                let html = '';
+                history.forEach((item, index) => {
+                    const isWin = item.isWin;
+                    const cls = isWin ? 'history-item win-item' : 'history-item';
+                    html += `
+                    <div class="${cls}">
+                        <span class="guess-index">#${index + 1}</span>
+                        <span class="guess-number">${item.guess}</span>
+                        <span class="guess-result">
+                            <span class="digits">🔢 ${item.digits}</span>
+                            <span class="positions">📍 ${item.positions}</span>
+                        </span>
+                    </div>
+                `;
+                });
+                historyList.innerHTML = html;
+                // 不需要滚动到底部了，因为全部显示
+            }
+
+            function resetGame() {
+                secretNumber = generateSecret();
+                attempts = 0;
+                gameOver = false;
+                history = [];
+                attemptSpan.textContent = '0';
+                guessInput.value = '';
+                guessInput.classList.remove('input-error');
+                renderHistory();
+                setStatus('🔄 新游戏开始！输入4位不重复数字', 'info', '🔄');
+                console.log('[新游戏] 秘密数字(不重复):', secretNumber);
+            }
+
+            function handleGuess() {
+                if (gameOver) {
+                    setStatus('⛔ 游戏已结束，点击「新局」再来一局吧', 'error', '⛔');
+                    return;
+                }
+
+                let guess = guessInput.value.trim();
+
+                if (!/^\d{4}$/.test(guess)) {
+                    setStatus('⚠️ 请输入 <strong>4位数字</strong> (例如 1234)', 'error', '⚠️');
+                    guessInput.classList.add('input-error');
+                    return;
+                }
+
+                if (hasDuplicate(guess)) {
+                    setStatus('⚠️ 4位数字<strong>不能重复</strong>！请重新输入', 'error', '⚠️');
+                    guessInput.classList.add('input-error');
+                    guessInput.value = '';
+                    guessInput.focus();
+                    return;
+                }
+
+                guessInput.classList.remove('input-error');
+
+                const result = evaluateGuess(guess, secretNumber);
+                const digits = result.correctDigits;
+                const positions = result.correctPositions;
+
+                attempts++;
+                attemptSpan.textContent = attempts;
+
+                const isWin = (positions === 4);
+
+                history.push({
+                    guess: guess,
+                    digits: digits,
+                    positions: positions,
+                    isWin: isWin
+                });
+                renderHistory();
+
+                if (isWin) {
+                    gameOver = true;
+                    setStatus(`🎉 恭喜！数字完全正确！就是 <strong>${secretNumber}</strong> ！用了 ${attempts} 次猜中 ✨`, 'success', '🎉');
+                    guessInput.value = '';
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    gameOver = true;
+                    setStatus(`⏳ 已达最大尝试 ${maxAttempts} 次，答案是：<strong>${secretNumber}</strong>`, 'error', '⏳');
+                    guessInput.value = '';
+                    return;
+                }
+
+                setStatus(`🔎 数字正确: <strong>${digits}</strong> 个 · 位置正确: <strong>${positions}</strong> 个  (第 ${attempts}/${maxAttempts} 次)`, 'info', '🔎');
+                guessInput.value = '';
+                guessInput.focus();
+            }
+
+            function appendDigit(digit) {
+                if (gameOver) {
+                    setStatus('⛔ 游戏已结束，点击「新局」再玩吧', 'error', '⛔');
+                    return;
+                }
+                let current = guessInput.value;
+                if (current.length < 4) {
+                    guessInput.value = current + digit;
+                    guessInput.classList.remove('input-error');
+                }
+                guessInput.focus();
+            }
+
+            function clearInput() {
+                guessInput.value = '';
+                guessInput.classList.remove('input-error');
+                guessInput.focus();
+            }
+
+            function backspace() {
+                let current = guessInput.value;
+                guessInput.value = current.slice(0, -1);
+                guessInput.classList.remove('input-error');
+                guessInput.focus();
+            }
+
+            function giveHint() {
+                if (gameOver) {
+                    setStatus(`⛔ 游戏已结束，答案是 <strong>${secretNumber}</strong>，点击新局吧`, 'error', '⛔');
+                    return;
+                }
+                if (!secretNumber) {
+                    setStatus('⚠️ 游戏未初始化，点击「新局」', 'error', '⚠️');
+                    return;
+                }
+                const idx = Math.floor(Math.random() * 4);
+                const hintDigit = secretNumber[idx];
+                setStatus(`💡 提示：第 ${idx + 1} 位数字是 <strong>${hintDigit}</strong> （其他位保密）`, 'info', '💡');
+            }
+
+            // ---------- 事件绑定 ----------
+            function initEventListeners() {
+                checkBtn.addEventListener('click', handleGuess);
+
+                guessInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleGuess();
+                    }
+                });
+
+                newGameBtn.addEventListener('click', resetGame);
+
+                digitPad.addEventListener('click', (e) => {
+                    const target = e.target.closest('.digit-btn');
+                    if (!target) return;
+                    if (target.id === 'backspaceBtn') {
+                        backspace();
+                        return;
+                    }
+                    if (target.id === 'clearBtn') {
+                        clearInput();
+                        return;
+                    }
+                    const digit = target.getAttribute('data-digit');
+                    if (digit !== null) {
+                        appendDigit(digit);
+                    }
+                });
+
+                hintBtn.addEventListener('click', giveHint);
+
+                guessInput.addEventListener('input', function () {
+                    this.value = this.value.replace(/\D/g, '').slice(0, 4);
+                    if (this.value.length > 0) {
+                        this.classList.remove('input-error');
+                    }
+                });
+
+                guessInput.addEventListener('focus', function () {
+                    this.classList.remove('input-error');
+                });
+            }
+
+            // ---------- 初始化 ----------
+            function init() {
+                resetGame();
+                initEventListeners();
+                guessInput.focus();
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
